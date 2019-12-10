@@ -4,18 +4,13 @@ Train the networks
 """
 import pickle
 from sklearn.metrics import log_loss
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.utils import plot_model
 from sklearn.model_selection import KFold
 import numpy as np
 import time
 import datetime as dt
-import preprocessing as pp
 import modelAZ as models
 
-with open("input.p", "rb") as f:
+with open("./out/input.p", "rb") as f:
     X_train, y_train, X_test, y_test = pickle.load(f)
 
 # Fitting with cross-validation
@@ -40,10 +35,6 @@ for model_name, model in models.model_dict.items():
                            end_time-begin_time)
 
 print(results)
-fname = "models_{}".format(dt.datetime.now().strftime("%Y%m%d_%H%M"))
-with open(fname, "wb") as f:
-    pickle.dump(results, f)
-print("Results saved as {}".format(fname))
 
 # Refit last model and save
 model.fit(X_train, y_train, epochs=250, batch_size=2000)

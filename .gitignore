@@ -130,3 +130,5 @@ dmypy.json
 
 # Custom for this project
 out/
+*.h5
+temp-plot.html

@@ -1,238 +1,79 @@
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.models import Sequential
+import preprocessing as pp
+import copy
+
+INPUT_DIM=len(pp.LETTERS)*pp.WINDOW
+OUTPUT_DIM=len(pp.LETTERS)
 
 model_dict = {}
+base_model = Sequential()
 
 """
-t = Sequential()
-t.add(Dense(4, activation='relu', input_dim=150))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
+#---------------------------------------
+# 000s Single layer
+#---------------------------------------
+params = [2**(t+2) for t in range(10)]
+base = 100
+for i, p in zip(range(len(params)), params):
+    t = copy.copy(base_model)
+    t.add(Dense(p, activation='relu', input_dim=INPUT_DIM))
+    t.add(Dense(OUTPUT_DIM, activation='softmax'))
+    t.compile(loss='categorical_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy'])
+    model_dict['model{0:04d}'.format(i)]=t
+
+#---------------------------------------
+# 100s Two Layer
+#---------------------------------------
+params=[128, 256, 512, 1024, 2048, 3072, 4096]
+base=100
+for i, p in zip(range(len(params)), params):
+    t = copy.copy(base_model)
+    t.add(Dense(p, activation='relu', input_dim=INPUT_DIM))
+    t.add(Dense(p, activation='relu'))
+    t.add(Dense(OUTPUT_DIM, activation='softmax'))
+    t.compile(loss='categorical_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy'])
+    model_dict['model{0:04d}'.format(i+base)]=t
+
+#---------------------------------------
+# 200s Two Layers with Dropout
+#---------------------------------------
+
+params = [0.1, 0.2, 0.3, 0.4, 0.5]
+base=200
+for i, p in zip(range(len(params)), params):
+    t = copy.copy(base_model)
+    t.add(Dense(2048, activation='relu', input_dim=INPUT_DIM))
+    t.add(Dropout(rate=p))
+    t.add(Dense(2048, activation='relu'))
+    t.add(Dropout(rate=p))
+    t.add(Dense(OUTPUT_DIM, activation='softmax'))
+    t.compile(loss='categorical_crossentropy',
               optimizer='adam',
               metrics=['accuracy'])
-model_dict['model1']=t
-
-t = Sequential()
-t.add(Dense(8, activation='relu', input_dim=150))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['model2']=t
-
-t = Sequential()
-t.add(Dense(16, activation='relu', input_dim=150))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['model3']=t
-
-t = Sequential()
-t.add(Dense(128, activation='relu', input_dim=150))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['model4']=t
-
-t = Sequential()
-t.add(Dense(256, activation='relu', input_dim=150))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['model5']=t
-
-t = Sequential()
-t.add(Dense(512, activation='relu', input_dim=150))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['model6']=t
-
-t = Sequential()
-t.add(Dense(1024, activation='relu', input_dim=150))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['model7']=t
-
-t = Sequential()
-t.add(Dense(2048, activation='relu', input_dim=150))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['model8']=t
-
-t = Sequential()
-t.add(Dense(4096, activation='relu', input_dim=150))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['model9']=t
-
-
-t = Sequential()
-t.add(Dense(128, activation='relu', input_dim=150))
-t.add(Dense(128, activation='relu'))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelA']=t
-
-
-t = Sequential()
-t.add(Dense(256, activation='relu', input_dim=150))
-t.add(Dense(256, activation='relu'))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelB']=t
-
-t = Sequential()
-t.add(Dense(512, activation='relu', input_dim=150))
-t.add(Dense(512, activation='relu'))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelC']=t
-
-t = Sequential()
-t.add(Dense(1024, activation='relu', input_dim=150))
-t.add(Dense(1024, activation='relu'))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelD']=t
-
-t = Sequential()
-t.add(Dense(1024, activation='relu', input_dim=150))
-t.add(Dropout(rate=0.1))
-t.add(Dense(1024, activation='relu'))
-t.add(Dropout(rate=0.1))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelE']=t
-
-t = Sequential()
-t.add(Dense(1024, activation='relu', input_dim=150))
-t.add(Dropout(rate=0.2))
-t.add(Dense(1024, activation='relu'))
-t.add(Dropout(rate=0.2))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelF']=t
-
-t = Sequential()
-t.add(Dense(1024, activation='relu', input_dim=150))
-t.add(Dropout(rate=0.3))
-t.add(Dense(1024, activation='relu'))
-t.add(Dropout(rate=0.3))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelG']=t
-
-t = Sequential()
-t.add(Dense(1024, activation='relu', input_dim=150))
-t.add(Dropout(rate=0.4))
-t.add(Dense(1024, activation='relu'))
-t.add(Dropout(rate=0.4))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelH']=t
-
-t = Sequential()
-t.add(Dense(1024, activation='relu', input_dim=150))
-t.add(Dropout(rate=0.5))
-t.add(Dense(1024, activation='relu'))
-t.add(Dropout(rate=0.5))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelI']=t
-
-
-t = Sequential()
-t.add(Dense(2048, activation='relu', input_dim=150))
-t.add(Dropout(rate=0.5))
-t.add(Dense(2048, activation='relu'))
-t.add(Dropout(rate=0.5))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelJ']=t
-
-t = Sequential()
-t.add(Dense(256, activation='relu', input_dim=150))
-t.add(Dropout(rate=0.5))
-t.add(Dense(256, activation='relu'))
-t.add(Dropout(rate=0.5))
-t.add(Dense(256, activation='relu'))
-t.add(Dropout(rate=0.5))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelK']=t
-
-
-t = Sequential()
-t.add(Dense(512, activation='relu', input_dim=150))
-t.add(Dropout(rate=0.5))
-t.add(Dense(512, activation='relu'))
-t.add(Dropout(rate=0.5))
-t.add(Dense(512, activation='relu'))
-t.add(Dropout(rate=0.5))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelL']=t
+    model_dict['model{0:04d}'.format(i+base)]=t
 """
 
-t = Sequential()
-t.add(Dense(1024, activation='relu', input_dim=150))
-t.add(Dropout(rate=0.5))
-t.add(Dense(1024, activation='relu'))
-t.add(Dropout(rate=0.5))
-t.add(Dense(1024, activation='relu'))
-t.add(Dropout(rate=0.5))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-model_dict['modelM']=t
+#---------------------------------------
+# 300s Three Layers with 0.5 dropout
+#---------------------------------------
 
-"""
-t = Sequential()
-t.add(Dense(2048, activation='relu', input_dim=150))
-t.add(Dropout(rate=0.5))
-t.add(Dense(2048, activation='relu'))
-t.add(Dropout(rate=0.5))
-t.add(Dense(2048, activation='relu'))
-t.add(Dropout(rate=0.5))
-t.add(Dense(30, activation='softmax'))
-t.compile(loss='categorical_crossentropy',
+params = [2**(t+2) for t in range(10)]
+base=300
+for i, p in zip(range(len(params)), params):
+    t = copy.copy(base_model)
+    t.add(Dense(p, activation='relu', input_dim=INPUT_DIM))
+    t.add(Dropout(rate=0.5))
+    t.add(Dense(p, activation='relu'))
+    t.add(Dropout(rate=0.5))
+    t.add(Dense(p, activation='relu'))
+    t.add(Dropout(rate=0.5))
+    t.add(Dense(OUTPUT_DIM, activation='softmax'))
+    t.compile(loss='categorical_crossentropy',
               optimizer='adam',
               metrics=['accuracy'])
-model_dict['modelN']=t
-"""
+    model_dict['model{0:04d}'.format(i+base)]=t
