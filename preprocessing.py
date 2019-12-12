@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Data preprocessing. Upcase everything, remove special characters
-"^" and "$" if they exist in the names. Encode the inputs and
-outputs for NN training (add details in this description).
+Data preprocessing. Upcase everything, remove special characters "^" and "$" 
+if they exist in the names. Encode the inputs and outputs for NN training 
+(add details in this description).
 
 TODO:
 - Replace references to "cities"
@@ -12,9 +12,12 @@ import pandas as pd
 import numpy as np
 import pickle
 import os
+import plotly.express as px
+from plotly.offline import plot
 
 WINDOW=6
 PADDING="".join((WINDOW)*["^"])
+MAX_LENGTH = 30
 LETTERS="^ABCDEFGHIJKLMNOPQRSTUVWXYZ' -$"
 
 def encode_in_out(x, y):
@@ -52,6 +55,9 @@ def create_input_output(name_list):
             
             x_mat, y_vec = encode_in_out(x_human[-1], y_human[-1])
             
+            # Add on positional marker to first position
+            x_mat=np.concatenate([np.array([i/MAX_LENGTH]), x_mat])
+                        
             X_list.append(x_mat)
             y_list.append(y_vec)
             
@@ -78,7 +84,28 @@ def run():
     
     # Make sure cities are unique
     cities=list(set(cities))
+
+    # Histogrm of word length for reference
+    len_results=[len(t) for t in cities]
  
+    df=pd.DataFrame(len_results, columns=['length'])    
+    fig=px.histogram(df , x='length', title="Database")
+    fig.update_xaxes(range=[0, 30])
+    fig.update_yaxes(title="")
+    fig.update_layout(
+        autosize=False,
+        margin=dict(l=20, r=20, t=30, b=20),
+        width=300,
+        height=300)    
+    plot(fig)
+ 
+    if max(len_results)>MAX_LENGTH:
+        raise(ValueError("Database contains excessively long name"))
+    
+    if max(len_results)<4:
+        raise(ValueError("Database contains excessively short name"))
+    
+    
     # Make sure all the letters are in our set of 
     # encoded letters, excluding the special characters
     # for beginning pads and ending.
@@ -115,6 +142,10 @@ def run():
     
     with open("./out/input.p","wb") as f:
         pickle.dump([X_train, y_train, X_test, y_test], f)
+
+
+
+
                 
 if __name__ == "__main__":
     run()

@@ -10,14 +10,18 @@ import preprocessing as pp
 class TestPreprocessing(unittest.TestCase):
 
     def test_create_input_output(self):
-        a, b, c = pp.create_input_output(["PHILA' DELPHIA"])
+        human, Xs, ys = pp.create_input_output(["PHILA' DELPHIA"])
         
-        self.assertEqual(''.join([t[-1] for t in a['input']]),
+        self.assertEqual(''.join([t[-1] for t in human['input']]),
                          "^PHILA' DELPHIA")
-        self.assertEqual(''.join([t for t in a['target']]),
+        self.assertEqual(''.join([t for t in human['target']]),
                          "PHILA' DELPHIA$")
         
-        self.assertEqual(c.shape, (len("PHILA' DELPHIA")+1, len(pp.LETTERS)))
+        # Check position indicator in X vector
+        check_X0=np.array([t/pp.MAX_LENGTH for t in 
+                        range(len("PHILA' DELPHIA$"))])
+        self.assertTrue(all(check_X0==Xs[:,0]))        
+        self.assertEqual(ys.shape, (len("PHILA' DELPHIA")+1, len(pp.LETTERS)))
         
     
     def test_encode_in_out(self):

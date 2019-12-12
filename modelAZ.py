@@ -3,7 +3,7 @@ from tensorflow.keras.models import Sequential
 import preprocessing as pp
 import copy
 
-INPUT_DIM=len(pp.LETTERS)*pp.WINDOW
+INPUT_DIM=len(pp.LETTERS)*pp.WINDOW+1
 OUTPUT_DIM=len(pp.LETTERS)
 
 model_dict = {}
@@ -24,6 +24,7 @@ for i, p in zip(range(len(params)), params):
                   metrics=['accuracy'])
     model_dict['model{0:04d}'.format(i)]=t
 
+
 #---------------------------------------
 # 100s Two Layer
 #---------------------------------------
@@ -38,6 +39,7 @@ for i, p in zip(range(len(params)), params):
                   optimizer='adam',
                   metrics=['accuracy'])
     model_dict['model{0:04d}'.format(i+base)]=t
+"""
 
 #---------------------------------------
 # 200s Two Layers with Dropout
@@ -56,8 +58,8 @@ for i, p in zip(range(len(params)), params):
               optimizer='adam',
               metrics=['accuracy'])
     model_dict['model{0:04d}'.format(i+base)]=t
-"""
 
+"""
 #---------------------------------------
 # 300s Three Layers with 0.5 dropout
 #---------------------------------------
@@ -77,3 +79,4 @@ for i, p in zip(range(len(params)), params):
               optimizer='adam',
               metrics=['accuracy'])
     model_dict['model{0:04d}'.format(i+base)]=t
+"""
