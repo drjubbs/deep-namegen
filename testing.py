@@ -8,14 +8,47 @@ import numpy as np
 import preprocessing as pp
 
 class TestPreprocessing(unittest.TestCase):
+    
+    def test_StatisticalProb(self):
+        
+        test_words = [
+        "DAA",
+        "DAB",
+        "DBC",
+        "DBD",
+        "DCE",
+        "DBF",
+        "BBB",
+        "BBC",
+        "BED",
+        "CBB"]
+
+        sp=pp.StatisticalProb(test_words)
+        p1=sp.get_first_prob("D")
+        p2=sp.get_second_prob("D")
+        
+        test_p1=np.zeros(len(pp.LETTERS))
+        test_p1[pp.LETTERS.index("D")]=0.6
+        test_p1[pp.LETTERS.index("B")]=0.3
+        test_p1[pp.LETTERS.index("C")]=0.1
+        
+        self.assertTrue(all(np.equal(p1,test_p1)))
+        
+        test_p2=np.zeros(len(pp.LETTERS))
+        test_p2[pp.LETTERS.index("A")]=2/6
+        test_p2[pp.LETTERS.index("B")]=3/6
+        test_p2[pp.LETTERS.index("C")]=1/6
+        
+        self.assertTrue(all(np.equal(p2, test_p2)))
+
 
     def test_create_input_output(self):
-        human, Xs, ys = pp.create_input_output(["PHILA' DELPHIA"])
+        human, Xs, ys = pp.create_input_output(["PHILA'_DELPHIA"])
         
         self.assertEqual(''.join([t[-1] for t in human['input']]),
-                         "^PHILA' DELPHIA")
+                         "^PHILA'_DELPHIA")
         self.assertEqual(''.join([t for t in human['target']]),
-                         "PHILA' DELPHIA$")
+                         "PHILA'_DELPHIA$")
         
         # Check position indicator in X vector
         check_X0=np.array([t/pp.MAX_LENGTH for t in 

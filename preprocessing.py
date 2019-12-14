@@ -18,7 +18,55 @@ from plotly.offline import plot
 WINDOW=6
 PADDING="".join((WINDOW)*["^"])
 MAX_LENGTH = 30
-LETTERS="^ABCDEFGHIJKLMNOPQRSTUVWXYZ' -$"
+LETTERS="^ABCDEFGHIJKLMNOPQRSTUVWXYZ'_-$"
+
+class StatisticalProb:
+    """For the first two letters in a word sequence, we'll use the
+    naturally occuring probabilities and joint probabilities.
+    """
+    
+    def __init__(self, words): 
+        df=pd.DataFrame({
+                'first' : [t[0] for t in words],
+                'second' : [t[1] for t in words]
+                    })
+        df['one']=1
+        
+        # First letter probabilities
+        cnts1=df[["first","one"]].groupby("first").count()
+        p1=cnts1/cnts1.sum()
+        for l in LETTERS:
+            if l not in p1.index:
+                p1.loc[l,"one"]=0
+        
+        p1=p1.loc[[k for k in LETTERS],:]        
+        self._first_prob=p1.copy()
+
+        
+        # Second letter probabilities conditoned on first
+        cnts2=df.pivot_table(index='first', columns='second', aggfunc='count')
+        cnts2.columns=[t[1] for t in cnts2.columns]
+         
+        for l in LETTERS:
+            if l not in cnts2.index:
+                cnts2.loc[l,:]=0
+            if l not in cnts2.columns:
+                cnts2.loc[:,l]=0
+         
+        cnts2=cnts2.loc[[k for k in LETTERS],[k for k in LETTERS]]
+        cnts2=cnts2.div(cnts2.sum(axis=1),axis=0)
+        p2=cnts2.fillna(0)
+        
+        self._second_prob=p2.copy()
+        
+
+    def get_first_prob(self, letter):
+        return self._first_prob.values.flatten()                   
+       
+        
+    def get_second_prob(self, letter):
+        return self._second_prob.loc[letter,:].values                
+        
 
 def encode_in_out(x, y):
     x_matrix=np.zeros([len(x),len(LETTERS)])
@@ -77,7 +125,7 @@ def run():
     cities=[]
     letters=set()
     for line in txt:
-        t=line.upper().replace("^","").replace("$","")
+        t=line.upper().replace("^","").replace("$",""),replace(" ","_")
         if not("/" in t):
             cities.append(t)
             letters=letters.union(set(t))
