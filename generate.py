@@ -15,20 +15,57 @@ vec_size = len(pp.LETTERS)*pp.WINDOW
 stride = len(pp.LETTERS)
 len_results = [] 
 
+"""
+#---------------
+# DEBUG
+#---------------
+
+# Check first two layers vs. table
+x0 = np.zeros(vec_size+1).reshape(-1,vec_size+1)
+prob0 = list(model.predict(x0)[0,:])
+
+usc=pp.Preprocessor("in/us_cities.txt")
+
+df0 = pd.DataFrame({
+        'actual' : usc.statistics.get_first_prob(), 
+        'model' : prob0
+                })
+
+# Check probability table for early termination
+xp, _ = usc._encode_in_out("^^^WAY", "A", 1)
+for a,b in zip(pp.LETTERS, model.predict(xp.reshape(1,187)).flatten()):
+    print("{0} {1:12.8f}".format(a, b))
+
+np.random.seed(20191125)
+"""
+
+#------------------------------------------
+# Generate names
+#------------------------------------------
 num_words=0 
 while num_words<1000:
-    x = np.zeros(vec_size).reshape(1,vec_size) 
-    length=0
+     
+    length = 0
     done = False
     word = []
+    
+    # Starting string without positional marker
+    x = usc._encode_in_out("".join(pp.WINDOW*["^"]),"A", 0)[0][1:]
+    x= x.reshape(1,vec_size)
+       
     while done==False:
-          
+
         # Augment with the positional indicator
         x_pos = np.concatenate([
                     np.array([length/pp.MAX_LENGTH]).reshape(-1,1),
                     x], axis=1)
         
         prob = list(model.predict(x_pos)[0,:])
+        
+        #if length<7:
+        #   prob[pp.LETTERS.index("$")]=0
+        
+        prob=list(prob/sum(prob))
         
         A = ([0]+list(np.cumsum([0]+prob[1:])))[:-1]
         B = ([0]+list(np.cumsum([0]+prob[1:])))[1:]
@@ -51,9 +88,10 @@ while num_words<1000:
             
             x=np.concatenate([x,letter], axis=1)
             length=length+1
-    
+        
     num_words=num_words+1
-    print("".join(word))
+    print("".join(word).replace("_", " ").title())
+        
     len_results.append(len(word))
 
 df=pd.DataFrame(len_results, columns=['length'])    

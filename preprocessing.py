@@ -3,11 +3,7 @@
 Data preprocessing. Upcase everything, remove special characters "^" and "$" 
 if they exist in the names. Encode the inputs and outputs for NN training 
 (add details in this description).
-
-TODO:
-- Replace references to "cities"
 """
-from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 import pickle
@@ -15,14 +11,22 @@ import os
 import plotly.express as px
 from plotly.offline import plot
 
+"""User parameters"""
 WINDOW=6
-PADDING="".join((WINDOW)*["^"])
+ENCODE_FIRST_PROB = True
+ENCODE_SECOND_PROB = True
 MAX_LENGTH = 30
+INPUT_FILE=r"in/us_cities.txt"
+
+PADDING="".join((WINDOW)*["^"])
 LETTERS="^ABCDEFGHIJKLMNOPQRSTUVWXYZ'_-$"
 
 class StatisticalProb:
-    """For the first two letters in a word sequence, we'll use the
-    naturally occuring probabilities and joint probabilities.
+    """Create probability table from targets.
+    
+    For the first two letters in a word sequence, we'll use the
+    naturally occuring probabilities and joint probabilities if requested.
+    This class builds and returns those vectors.
     """
     
     def __init__(self, words): 
@@ -60,140 +64,158 @@ class StatisticalProb:
         self._second_prob=p2.copy()
         
 
-    def get_first_prob(self, letter):
+    def get_first_prob(self):
+        """Return probability of first letter."""
         return self._first_prob.values.flatten()                   
+
        
-        
     def get_second_prob(self, letter):
+        """Return probability of second letter conditioned on first."""
         return self._second_prob.loc[letter,:].values                
         
-
-def encode_in_out(x, y):
-    x_matrix=np.zeros([len(x),len(LETTERS)])
-    for i in range(len(x)):
-        x_matrix[i][LETTERS.index(x[i])]=1
+class Preprocessor:
+    def _encode_in_out(self, x, y, pos):
+        """One-hot encoding of items.
         
-    x_vector=x_matrix.reshape(len(LETTERS)*len(x))    
-        
-    y_vector=np.zeros([len(LETTERS)])
-    y_vector[LETTERS.index(y)]=1
-    return(x_vector, y_vector)
-
-
-def create_input_output(name_list):
-    """
-    Using context window, we'll pre-pad everything with starting characters 
-    and a stopping character.
+        Convert text representation of x and y to one-hot encoding
+        based on LETTERS global object.
+        """
+        x_matrix=np.zeros([len(x),len(LETTERS)])
+        for i in range(len(x)):
+            x_matrix[i][LETTERS.index(x[i])]=1
+   
+        # Prepend the positional encoding         
+        x_vector=x_matrix.reshape(len(LETTERS)*len(x))
+        x_vector=np.concatenate([np.array(pos/MAX_LENGTH).reshape([1]), 
+                                     x_vector])
+             
+        y_vector=np.zeros([len(LETTERS)])
+        y_vector[LETTERS.index(y)]=1
+        return(x_vector, y_vector)
     
-    Returns a human readable data frame, and one-hot encoded
-    input/output pairs.
-    """
-
-    name_pad=[PADDING+t+"$" for t in name_list]
-
-    x_human=[]
-    X_list=[]
-    y_human=[]
-    y_list=[]
+    
+    def _create_input_output(self, name_list):
+        """Create encodings for all inputs.
         
-    for thisname in name_pad:
-        for i in range(len(thisname)-WINDOW):
-            x_human.append(thisname[i:i+WINDOW])
-            y_human.append(thisname[i+WINDOW])
+        From a list of targets `name_list`, create X-y pairs using a context
+        Window. Entries are pre-padded with starting characters and a stopping
+        character. Global variables ENCODE_FIRST_PROB and ENCODE_SECOND_PROB
+        realace the first and second `y` targest for a word with a probability
+        instead of a hot encoding (i.e. when there is little to no context
+        window available use a table lookp for next most likely)
+          
+        Returns a human readable data frame, and one-hot encoded
+        input/output pairs.
+        """
+    
+        name_pad=[PADDING+t+"$" for t in name_list]
+    
+        x_human=[]
+        X_list=[]
+        y_human=[]
+        y_list=[]
             
-            x_mat, y_vec = encode_in_out(x_human[-1], y_human[-1])
+        for thisname in name_pad:
+            for i in range(len(thisname)-WINDOW):
+                x_human.append(thisname[i:i+WINDOW])
+                y_human.append(thisname[i+WINDOW])
+                
+                x_mat, y_vec = self._encode_in_out(x_human[-1], y_human[-1], i)
+                
+                # Override first letter probabilities with table lookup
+                if i == 0 and ENCODE_FIRST_PROB:
+                   y_vec=self.statistics.get_first_prob()
+    
+                # Override second letter probabilities with table lookup,
+                # this is conditional on the preceeding letter.
+                if i == 1 and ENCODE_SECOND_PROB:
+                    y_vec=self.statistics.get_second_prob(x_human[-1][-1])
+                            
+                X_list.append(x_mat)
+                y_list.append(y_vec)
+                
+        df=pd.DataFrame({
+                'input' : x_human,
+                'target' : y_human
+                })
             
-            # Add on positional marker to first position
-            x_mat=np.concatenate([np.array([i/MAX_LENGTH]), x_mat])
-                        
-            X_list.append(x_mat)
-            y_list.append(y_vec)
+        return(df, np.array(X_list), np.array(y_list))
+        
+    def create_histogram(self):
+        """Plot histogram of target lengths for reference.
+        """
+        len_results=[len(t) for t in self.targets]
+        df=pd.DataFrame(len_results, columns=['length'])    
+        fig=px.histogram(df , x='length', title="Database")
+        fig.update_xaxes(range=[0, 30])
+        fig.update_yaxes(title="")
+        fig.update_layout(
+            autosize=False,
+            margin=dict(l=20, r=20, t=30, b=20),
+            width=600,
+            height=600)    
+        plot(fig)
+        
+       
+    def __init__(self, input_filename):
+        with open(input_filename, "r") as f:
+            txt=f.read().split("\n")
+        
+        # Loop through all cities, make uppercase, skip
+        # cities having a backslash
+        tgts=[]
+        letters=set()
+        for line in txt:
+            t=line.upper().replace("^","").replace("$","").replace(" ","_")
+            if not("/" in t):
+                tgts.append(t)
+                letters=letters.union(set(t))
+        
+        # Make sure targets are unique
+        self.targets=list(set(tgts))
+    
+        # Nothing excessively long or short
+        len_results=[len(t) for t in self.targets]    
+        if max(len_results)>MAX_LENGTH:
+            raise(ValueError("Database contains excessively long name"))
+        if max(len_results)<4:
+            raise(ValueError("Database contains excessively short name"))
+        
+        # Make sure all the letters are in our set of 
+        # encoded letters, excluding the special characters
+        # for beginning pads and ending.
+        if not(all([t in LETTERS[1:-1] for t in letters])):
+            raise(ValueError("Letters present in names, missing in encoding."))
+        
+        # Split into training and test sets
+        np.random.seed(20191125)
+        idx=np.random.choice(list(range(len(self.targets))), 
+                                 size=len(self.targets),
+                                 replace=False)
+        
+        train=self.targets[0:len(idx)//4*3]
+        test=self.targets[len(idx)//4*3:]
+        
+        # if we did this correctly, the intersection of the training and 
+        # test sets should be zero
+        if len(set(train).intersection(set(test)))>0:
+            raise(ValueError("Problem with uniqueness of train/test"))
+                
+        # Create statistical table
+        self.statistics = StatisticalProb(self.targets)
             
-    df=pd.DataFrame({
-            'input' : x_human,
-            'target' : y_human
-            })
+        if not os.path.exists('out'):
+            os.makedirs('out')
+         
+        df_human_train, X_train, y_train=self._create_input_output(train)
+        df_human_train.to_csv("./out/df_human_train.csv")
         
-    return(df, np.array(X_list), np.array(y_list))
-    
-def run():
-    with open("in/us_cities.txt", "r") as f:
-        txt=f.read().split("\n")
-    
-    # Loop through all cities, make uppercase, skip
-    # cities having a backslash
-    cities=[]
-    letters=set()
-    for line in txt:
-        t=line.upper().replace("^","").replace("$",""),replace(" ","_")
-        if not("/" in t):
-            cities.append(t)
-            letters=letters.union(set(t))
-    
-    # Make sure cities are unique
-    cities=list(set(cities))
-
-    # Histogrm of word length for reference
-    len_results=[len(t) for t in cities]
- 
-    df=pd.DataFrame(len_results, columns=['length'])    
-    fig=px.histogram(df , x='length', title="Database")
-    fig.update_xaxes(range=[0, 30])
-    fig.update_yaxes(title="")
-    fig.update_layout(
-        autosize=False,
-        margin=dict(l=20, r=20, t=30, b=20),
-        width=300,
-        height=300)    
-    plot(fig)
- 
-    if max(len_results)>MAX_LENGTH:
-        raise(ValueError("Database contains excessively long name"))
-    
-    if max(len_results)<4:
-        raise(ValueError("Database contains excessively short name"))
-    
-    
-    # Make sure all the letters are in our set of 
-    # encoded letters, excluding the special characters
-    # for beginning pads and ending.
-    if not(all([t in LETTERS[1:-1] for t in letters])):
-        raise(ValueError("Letters present in names, missing in encoding."))
-    
-    # Split into training and test sets
-    np.random.seed(20191125)
-    idx=np.random.choice(list(range(len(cities))), size=len(cities),
-                             replace=False)
-    
-    train=cities[0:len(idx)//4*3]
-    test=cities[len(idx)//4*3:]
-    
-    # if we did this correctly, the intersection of the training and 
-    # test sets should be zero
-    if len(set(train).intersection(set(test)))>0:
-        raise(ValueError("Problem with uniqueness of train/test"))
-    
-    
-    # Look at histogram of lengths to determine size of context window
-    plt.figure(1)    
-    plt.hist([len(t) for t in cities], bins=[t+0.5 for t in range(15)])
-    plt.show()
+        df_human_test, X_test, y_test=self._create_input_output(test)
+        df_human_test.to_csv("./out/df_human_test.csv")
         
-    if not os.path.exists('out'):
-        os.makedirs('out')
-     
-    df_human_train, X_train, y_train=create_input_output(train)
-    df_human_train.to_csv("./out/df_human_train.csv")
-    
-    df_human_test, X_test, y_test=create_input_output(test)
-    df_human_test.to_csv("./out/df_human_test.csv")
-    
-    with open("./out/input.p","wb") as f:
-        pickle.dump([X_train, y_train, X_test, y_test], f)
-
-
-
-
+        with open("./out/input.p","wb") as f:
+            pickle.dump([X_train, y_train, X_test, y_test], f)
                 
 if __name__ == "__main__":
-    run()
+    pp=Preprocessor(INPUT_FILE)
+    pp.create_histogram()
