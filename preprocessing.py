@@ -12,11 +12,10 @@ import plotly.express as px
 from plotly.offline import plot
 
 """User parameters"""
-WINDOW=6
+WINDOW=4
 ENCODE_FIRST_PROB = True
 ENCODE_SECOND_PROB = True
-MAX_LENGTH = 30
-INPUT_FILE=r"in/us_cities.txt"
+INPUT_FILE=r"input/bible_characters.txt"
 
 PADDING="".join((WINDOW)*["^"])
 LETTERS="^ABCDEFGHIJKLMNOPQRSTUVWXYZ'_-$"
@@ -86,7 +85,7 @@ class Preprocessor:
    
         # Prepend the positional encoding         
         x_vector=x_matrix.reshape(len(LETTERS)*len(x))
-        x_vector=np.concatenate([np.array(pos/MAX_LENGTH).reshape([1]), 
+        x_vector=np.concatenate([np.array(pos/self._max_length).reshape([1]), 
                                      x_vector])
              
         y_vector=np.zeros([len(LETTERS)])
@@ -155,11 +154,14 @@ class Preprocessor:
             width=600,
             height=600)    
         plot(fig)
+    
+    def preprocess(self):
+        """Preprocess input data """
         
-       
-    def __init__(self, input_filename):
-        with open(input_filename, "r") as f:
+        with open(self._filename, "r") as f:
             txt=f.read().split("\n")
+        
+        self._max_length=10+max([len(t) for t in txt])
         
         # Loop through all cities, make uppercase, skip
         # cities having a backslash
@@ -176,7 +178,7 @@ class Preprocessor:
     
         # Nothing excessively long or short
         len_results=[len(t) for t in self.targets]    
-        if max(len_results)>MAX_LENGTH:
+        if max(len_results)>self._max_length:
             raise(ValueError("Database contains excessively long name"))
         if max(len_results)<4:
             raise(ValueError("Database contains excessively short name"))
@@ -215,7 +217,13 @@ class Preprocessor:
         
         with open("./out/input.p","wb") as f:
             pickle.dump([X_train, y_train, X_test, y_test], f)
+
+       
+    def __init__(self, input_filename):    
+        self._filename=input_filename
+    
                 
 if __name__ == "__main__":
     pp=Preprocessor(INPUT_FILE)
+    pp.preprocess()
     pp.create_histogram()
