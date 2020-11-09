@@ -22,7 +22,7 @@ usc.preprocess()
 
 # TODO
 
-- Why are smaller batch sizes crashing? See `final_fit.py`...
+- Why are smaller batch sizes crashing? See `final_fit.py`... (see https://github.com/tensorflow/tensorflow/issues/44459)
 - Store the preprocessor with the model so that `generate.py` doesn't come out of sync with the training.
 - Modify `generate.py` to not repeat words already in the dictionary.
 

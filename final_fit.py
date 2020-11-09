@@ -35,7 +35,8 @@ with open("./out/input.p", "rb") as f:
 
 begin_time=time.time()
 
-# TODO: Small batch sizes crash ?!?!?! (less than 3k for bible names)
+# TODO: Small batch sizes crash ?!?!?
+# (less than 3k for bible names)
 model.fit(X_train[:,:], y_train[:,:], 
           epochs=500, 
           batch_size=X_train.shape[0], 
