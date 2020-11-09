@@ -1,26 +1,15 @@
 # -*- coding: utf-8 -*-
-"""
-Train the networks. At the end prints out a dictionary
-which can be pasted in pareto.py to visualization train/validations
-errors.
-"""
-# Debug - uncomment to turn off GPU support
-#import os
-#os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+""" Hyper-parameter search using cross-fold validation. """
 
 import pickle
-from sklearn.metrics import log_loss
+import time
 from sklearn.model_selection import KFold
 import numpy as np
-import time
-import datetime as dt
-import modelAZ as models
-
-# This controls which model is re-fit and then saved 
-# at the end of the search. Set to 'none' if refitting
-# is not desired.
-SAVE_MODEL="model0009"
-
+import pandas as pd
+import plotly.express as px
+from plotly.offline import plot
+from preprocessing import Preprocessor, StatisticalProb
+import models
 
 def logloss(y_true, y_pred, eps=1e-15):
     """We need our own log loss indicator because sci-kit does not
@@ -29,46 +18,55 @@ def logloss(y_true, y_pred, eps=1e-15):
     y_pred = np.clip(y_pred, eps, 1 - eps)
     return -(y_true * np.log(y_pred)).sum(axis=1).mean()
 
-with open("./out/input.p", "rb") as f:
-    X_train, y_train, X_test, y_test = pickle.load(f)
+with open("./out/input.p", "rb") as input_fn:
+    pp = pickle.load(input_fn)[0]
+
+x_train = pp.x_train
+y_train = pp.y_train
+X_test = pp.x_test
+y_test = pp.y_test
 
 # Fitting with cross-validation
 kf = KFold(n_splits=3)
 results = {}
 
-begin_all_time=time.time()
+begin_all_time = time.time()
+models_dict = models.generate_models(pp)
 
-for model_name, model in models.model_dict.items():
-    begin_time=time.time()
-    out_of_bag=[]
+for model_name, model in models_dict.items():
+    begin_time = time.time()
+    out_of_bag = []
     train_err = []
-    for train_idx, val_idx in kf.split(X_train, y_train):
-        
-        xt=X_train[train_idx,:]
-        yt=y_train[train_idx,:]
-                
-        model.fit(X_train[train_idx,:], y_train[train_idx,:], 
-                      epochs=100, batch_size=2000, verbose=0)
-        
-        llt=logloss(y_train[train_idx,:], model.predict(X_train[train_idx,:]))
+    for train_idx, val_idx in kf.split(x_train, y_train):
+        model.fit(x_train[train_idx, :], y_train[train_idx, :],
+                  epochs=300, batch_size=len(train_idx), verbose=0)
+
+        llt = logloss(y_train[train_idx, :],
+                      model.predict(x_train[train_idx, :]))
         train_err.append(llt)
-        llv=logloss(y_train[val_idx,:], model.predict(X_train[val_idx,:]))
+        llv = logloss(y_train[val_idx, :], model.predict(x_train[val_idx, :]))
         out_of_bag.append(llv)
-        
         print(model_name, llt, llv)
-        
-    end_time=time.time()
-    results[model_name] = (np.mean(train_err), 
+
+    end_time = time.time()
+    results[model_name] = (np.mean(train_err),
                            np.mean(out_of_bag),
                            end_time-begin_time)
 
-print(results)
-end_all_time=time.time()
-print("Total time:", end_all_time-begin_all_time)
+labels = []
+train = []
+oob = []
 
-if SAVE_MODEL is not None:
-    # Refit last model and save
-    model=models.model_dict[SAVE_MODEL]
-    print(SAVE_MODEL+ " fit and saved.")
-    model.fit(X_train, y_train, epochs=250, batch_size=2000, verbose=0)
-    model.save("curr_model.h5")
+for k, v in results.items():
+    labels.append(k)
+    train.append(v[0])
+    oob.append(v[1])
+
+df = pd.DataFrame({
+                    'labels': labels,
+                    'train': train,
+                    'oob': oob,
+                  })
+
+fig = px.scatter(data_frame=df, x='train', y='oob', hover_name='labels')
+plot(fig)

@@ -132,3 +132,4 @@ dmypy.json
 out/
 *.h5
 temp-plot.html
+.vscode
