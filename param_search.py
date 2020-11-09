@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Train the networks
+Train the networks. At the end prints out a dictionary
+which can be pasted in pareto.py to visualization train/validations
+errors.
 """
+# Debug - uncomment to turn off GPU support
+#import os
+#os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 import pickle
 from sklearn.metrics import log_loss
 from sklearn.model_selection import KFold
@@ -9,6 +15,12 @@ import numpy as np
 import time
 import datetime as dt
 import modelAZ as models
+
+# This controls which model is re-fit and then saved 
+# at the end of the search. Set to 'none' if refitting
+# is not desired.
+SAVE_MODEL="model0009"
+
 
 def logloss(y_true, y_pred, eps=1e-15):
     """We need our own log loss indicator because sci-kit does not
@@ -24,6 +36,8 @@ with open("./out/input.p", "rb") as f:
 kf = KFold(n_splits=3)
 results = {}
 
+begin_all_time=time.time()
+
 for model_name, model in models.model_dict.items():
     begin_time=time.time()
     out_of_bag=[]
@@ -32,10 +46,7 @@ for model_name, model in models.model_dict.items():
         
         xt=X_train[train_idx,:]
         yt=y_train[train_idx,:]
-        
-        import pdb
-        pdb.set_trace()
-        
+                
         model.fit(X_train[train_idx,:], y_train[train_idx,:], 
                       epochs=100, batch_size=2000, verbose=0)
         
@@ -52,19 +63,12 @@ for model_name, model in models.model_dict.items():
                            end_time-begin_time)
 
 print(results)
+end_all_time=time.time()
+print("Total time:", end_all_time-begin_all_time)
 
-## Refit last model and save
-#model.fit(X_train, y_train, epochs=250, batch_size=2000)
-#model.save("curr_model.h5")
-
-"""
-for i in range(40):
-    actual=pp.LETTERS[np.argmax(y_train[i])]
-    modeled=pp.LETTERS[np.argmax(model.predict(X_train[i].reshape(1,150)))]
-    print(actual," ", modeled)
-    
-import matplotlib.pyplot as plt
-model.history.history['accuracy']
-plt.plot(model.history.history['accuracy'])
-plt.show()
-"""
+if SAVE_MODEL is not None:
+    # Refit last model and save
+    model=models.model_dict[SAVE_MODEL]
+    print(SAVE_MODEL+ " fit and saved.")
+    model.fit(X_train, y_train, epochs=250, batch_size=2000, verbose=0)
+    model.save("curr_model.h5")

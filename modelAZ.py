@@ -9,7 +9,7 @@ OUTPUT_DIM=len(pp.LETTERS)
 model_dict = {}
 base_model = Sequential()
 
-"""
+
 #---------------------------------------
 # 000s Single layer
 #---------------------------------------
@@ -23,7 +23,6 @@ for i, p in zip(range(len(params)), params):
                   optimizer='adam',
                   metrics=['accuracy'])
     model_dict['model{0:04d}'.format(i)]=t
-
 
 #---------------------------------------
 # 100s Two Layer
@@ -43,7 +42,6 @@ for i, p in zip(range(len(params)), params):
 #---------------------------------------
 # 200s Two Layers with Dropout
 #---------------------------------------
-
 params = [0.1, 0.2, 0.3, 0.4, 0.5]
 base=200
 for i, p in zip(range(len(params)), params):
@@ -57,12 +55,10 @@ for i, p in zip(range(len(params)), params):
               optimizer='adam',
               metrics=['accuracy'])
     model_dict['model{0:04d}'.format(i+base)]=t
-"""
 
 #---------------------------------------
 # 300s Three Layers with 0.5 dropout
 #---------------------------------------
-
 params = [2**(t+2) for t in range(10)]
 base=300
 for i, p in zip(range(len(params)), params):

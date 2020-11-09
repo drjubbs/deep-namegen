@@ -16,6 +16,7 @@ WINDOW=6
 ENCODE_FIRST_PROB = True
 ENCODE_SECOND_PROB = True
 MAX_LENGTH = 30
+#INPUT_FILE=r"in/bible_characters.txt"
 INPUT_FILE=r"in/us_cities.txt"
 
 PADDING="".join((WINDOW)*["^"])

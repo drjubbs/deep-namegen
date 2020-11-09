@@ -8,36 +8,14 @@ import tensorflow as tf
 import preprocessing as pp
 import pandas as pd
 import plotly.express as px
+
 from plotly.offline import plot
 
 model = tf.keras.models.load_model('curr_model.h5')
 vec_size = len(pp.LETTERS)*pp.WINDOW
 stride = len(pp.LETTERS)
 len_results = [] 
-
-"""
-#---------------
-# DEBUG
-#---------------
-
-# Check first two layers vs. table
-x0 = np.zeros(vec_size+1).reshape(-1,vec_size+1)
-prob0 = list(model.predict(x0)[0,:])
-
-usc=pp.Preprocessor("in/us_cities.txt")
-
-df0 = pd.DataFrame({
-        'actual' : usc.statistics.get_first_prob(), 
-        'model' : prob0
-                })
-
-# Check probability table for early termination
-xp, _ = usc._encode_in_out("^^^WAY", "A", 1)
-for a,b in zip(pp.LETTERS, model.predict(xp.reshape(1,187)).flatten()):
-    print("{0} {1:12.8f}".format(a, b))
-
-np.random.seed(20191125)
-"""
+usc=pp.Preprocessor(pp.INPUT_FILE)
 
 #------------------------------------------
 # Generate names
