@@ -38,8 +38,10 @@ for model_name, model in models_dict.items():
     out_of_bag = []
     train_err = []
     for train_idx, val_idx in kf.split(x_train, y_train):
+
+        batch_size = min([2000, len(train_idx)])
         model.fit(x_train[train_idx, :], y_train[train_idx, :],
-                  epochs=300, batch_size=len(train_idx), verbose=0)
+                  epochs=250, batch_size=batch_size, verbose=0)
 
         llt = logloss(y_train[train_idx, :],
                       model.predict(x_train[train_idx, :]))

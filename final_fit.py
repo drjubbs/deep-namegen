@@ -48,8 +48,8 @@ y_all=np.concatenate([pp.y_train, pp.y_test])
 
 begin_time=time.time()
 model.fit(x_all, y_all,
-          epochs=500,
-          batch_size=3000,
+          epochs=1000,
+          batch_size=min([2000, len(x_all)]),
           verbose=1,
           callbacks=[history])
 model.save("curr_model.h5")

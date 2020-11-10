@@ -16,10 +16,10 @@ def main():
 
     model = tf.keras.models.load_model('curr_model.h5')
     with open("./out/input.p", "rb") as input_fn:
-        pp = pickle.load(input_fn)[0]
+        pre_proc = pickle.load(input_fn)[0]
 
     stride = len(LETTERS)
-    len_results = [] 
+    len_results = []
 
     #------------------------------------------
     # Generate names
@@ -32,27 +32,25 @@ def main():
         word = []
 
         # Starting string without positional marker
-        x_enc = pp.get_starting_vector()
+        x_enc = pre_proc.get_starting_vector()
 
         while not done:
 
             # Augment with the positional indicator
             x_pos = np.concatenate([
-                        np.array([length/pp._max_length]).reshape(-1,1),
+                        np.array([length/pre_proc.get_max_length()]).reshape(-1,1),
                         x_enc], axis=1)
 
             prob = list(model.predict(x_pos)[0,:])
             prob = list(prob/sum(prob))
 
-            A = ([0]+list(np.cumsum([0]+prob[1:])))[:-1]
-            B = ([0]+list(np.cumsum([0]+prob[1:])))[1:]
+            # Set up the high and low limits for each letter
+            a_prob = ([0]+list(np.cumsum([0]+prob[1:])))[:-1]
+            b_prob = ([0]+list(np.cumsum([0]+prob[1:])))[1:]
 
-            df=pd.DataFrame(zip(A,B),
-                            columns=["A", "B"],
-                            index=list(LETTERS))
-
-            p = np.random.rand()
-            mask=[p>=x1 and p<x2 for x1, x2 in zip(A,B)]
+            prob_rand = np.random.rand()
+            mask=[prob_rand>=x1 and prob_rand<x2 for x1, x2 in \
+                        zip(a_prob, b_prob)]
 
             letter=LETTERS[mask.index(True)]
             if letter=="$":
@@ -69,13 +67,13 @@ def main():
 
         # Skip if this word is in our training set...
         test_output="".join(word)
-        if not test_output in pp._targets:
+        if not test_output in pre_proc.get_targets():
             num_words=num_words+1
             print(test_output.replace("_", " ").title())
             len_results.append(len(word))
 
-    df=pd.DataFrame(len_results, columns=['length'])    
-    fig=px.histogram(df , x='length', title="Generated")
+    df_len=pd.DataFrame(len_results, columns=['length'])
+    fig=px.histogram(df_len , x='length', title="Generated")
     fig.update_xaxes(range=[0, 30])
     fig.update_yaxes(title="")
     fig.update_layout(

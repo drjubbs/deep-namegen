@@ -16,9 +16,19 @@ You may also need to open the Display control panel (`Control Panel > Hardware a
 # Usage
 
 1. Open `preprocessing.py` and modify the `main()` function to use one of the provided data sets (or provide your own).
+
 2. Edit `models.py`, which returns `models_dict`, a dictionary of TensorFlow models, to include models for search. Follow the examples.
+
 3. `param_search.py` loops over the models, and generates a pareto plot comparing overall training error to out of bag error (a decent measure of generalization). You can hover over the Plotly chart to manually select a model.
+
 4. Open `final_fit.py`  to make novel names using the model. You may want to modify the parameter to `model.save()` to prevent the code from overwriting old models (and be sure the save the processor to a different filename as well  `./out/input.p`.
+
+5. New names can be generated using the `generate.py` script. Ensure the model and preprocessor match the desired model:
+
+   ```  model = tf.keras.models.load_model('curr_model.h5')
+   with open("./out/input.p", "rb") as input_fn:
+   	pp = pickle.load(input_fn)[0]
+   ```
 
 # Method Overview
 

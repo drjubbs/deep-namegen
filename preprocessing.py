@@ -6,6 +6,9 @@ if they exist in the names. Encode the inputs and outputs for NN training
 """
 
 import pickle
+import json
+import base64
+import gzip
 import os
 import pandas as pd
 import numpy as np
@@ -25,7 +28,14 @@ class StatisticalProb:
     This class builds and returns those vectors.
     """
 
-    def __init__(self, words):
+    def __init__(self):
+        """Constructor for class"""
+        self._first_prob = None
+        self._second_prob = None
+
+
+    def calc_stats(self, words):
+        """Calculate letter frequencies"""
         df_letters = pd.DataFrame({
                 'first' : [t[0] for t in words],
                 'second' : [t[1] for t in words]
@@ -68,6 +78,31 @@ class StatisticalProb:
     def get_second_prob(self, letter):
         """Return probability of second letter conditioned on first."""
         return self._second_prob.loc[letter,:].values
+
+
+    def get_second_df(self):
+        """Returns conditional probability as a matrix"""
+        return self._second_prob
+
+
+    def to_json(self):
+        """Serialize to JSON"""
+        json_dict = {}
+        json_dict['_first_prob']=self._first_prob.to_json()
+        json_dict['_second_prob']=self._second_prob.to_json()
+
+        return json.dumps(json_dict)
+
+
+    def from_json(self, json_txt):
+        """Deserialize from JSON"""
+        json_dict = json.loads(json_txt)
+        self._first_prob = pd.read_json(json_dict['_first_prob'])
+        self._second_prob = pd.read_json(json_dict['_second_prob'])
+
+        # Fix order
+        self._first_prob=self._first_prob.loc[list(LETTERS)]
+        self._second_prob=self._second_prob.loc[list(LETTERS),list(LETTERS)]
 
 
 class Preprocessor:
@@ -151,7 +186,8 @@ class Preprocessor:
             raise ValueError("Problem with uniqueness of train/test")
 
         # Create statistical table
-        self.statistics = StatisticalProb(self._targets)
+        self.statistics = StatisticalProb()
+        self.statistics.calc_stats(self._targets)
 
         # One hot encode and store in object
         df_human_train, self.x_train, self.y_train = \
@@ -263,17 +299,70 @@ class Preprocessor:
         return x_init
 
 
+    def get_max_length(self):
+        """Return read-only attribute max_length"""
+        return self._max_length
+
+
+    def get_targets(self):
+        """Return read-only attribute max_length"""
+        return self._targets
+
+    def to_json(self):
+        """Serialize pre-processed object to JSON"""
+        json_dict = {}
+        json_dict['_max_length'] = self._max_length
+        json_dict['filename'] = self.filename
+        json_dict['window'] = self.window
+        json_dict['statistics'] = self.statistics.to_json()
+
+        json_dict['_targets'] = self._targets
+        for field in ['x_train', 'x_test', 'y_train', 'y_test']:
+            json_dict[field] = base64.b64encode(
+                                gzip.compress(
+                                pickle.dumps(
+                                        self.__dict__[field]
+                                ))).decode('ascii')
+
+        return json.dumps(json_dict)
+
+
+    def from_json(self, json_txt):
+        """Deserialize from JSON string."""
+        json_dict = json.loads(json_txt)
+        self._max_length = json_dict['_max_length']
+        self.filename = json_dict['filename']
+        self.window = json_dict['window']
+        stat_prob = StatisticalProb()
+        stat_prob.from_json(json_dict['statistics'])
+        self.statistics = stat_prob
+
+        self._targets = json_dict['_targets']
+        for field in ['x_train', 'x_test', 'y_train', 'y_test']:
+            np_temp = pickle.loads(
+                      gzip.decompress
+                      (base64.b64decode(
+                        json_dict[field]
+                       )))
+            self.__setattr__(field, np_temp)
+
+
 if __name__ == "__main__":
-    pp=Preprocessor()
+    pre_proc=Preprocessor()
 
     # Filename, window size
-    #pp.preprocess("input/us_cities.txt", 7)
-    pp.preprocess("input/bible_characters.txt", 5)
+    #pre_proc.preprocess("input/us_cities.txt", 7)
+    pre_proc.preprocess("input/bible_characters.txt", 5)
 
     # Pickle and save
     if not os.path.exists('out'):
         os.makedirs('out')
     with open("./out/input.p","wb") as output_file:
-        pickle.dump([pp], output_file)
+        pickle.dump([pre_proc], output_file)
 
-    pp.create_histogram()
+    txt_out=pre_proc.to_json()
+    with open("./out/input.json","w") as output_file:
+        output_file.writelines(txt_out)
+
+    pre_proc.create_histogram()
+    
