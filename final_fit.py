@@ -10,12 +10,14 @@ import pandas as pd
 import models
 from preprocessing import Preprocessor, StatisticalProb
 
-MODEL_NAME = "model0007"
+MODEL_NAME = "DENS0007"
+FILENAME = "./output/bible_characters.json"
 
-# Load preprocessor object and model dictionary
-with open("./out/input.p", "rb") as input_fn:
-    pp = pickle.load(input_fn)[0]
-model = models.generate_models(pp)[MODEL_NAME]
+# De-serialize preprocessor
+with open(FILENAME, "r") as this_file:
+    json_txt = this_file.read()
+pre = Preprocessor()
+pre.from_json(json_txt)
 
 class LossHistory(keras.callbacks.Callback):
     """User defined extestion to keras callback to store training errors as
@@ -43,8 +45,11 @@ def logloss(y_true, y_pred, eps=1e-15):
     y_pred = np.clip(y_pred, eps, 1 - eps)
     return -(y_true * np.log(y_pred)).sum(axis=1).mean()
 
-x_all=np.concatenate([pp.x_train, pp.x_test])
-y_all=np.concatenate([pp.y_train, pp.y_test])
+x_all=np.concatenate([pre.x_train, pre.x_test])
+y_all=np.concatenate([pre.y_train, pre.y_test])
+
+model_dict = models.generate_models(pre)
+model = model_dict[MODEL_NAME]
 
 begin_time=time.time()
 model.fit(x_all, y_all,
@@ -52,7 +57,7 @@ model.fit(x_all, y_all,
           batch_size=min([2000, len(x_all)]),
           verbose=1,
           callbacks=[history])
-model.save("curr_model.h5")
+model.save("./output/curr_model.h5")
 end_time=time.time()
 
 print("Training time: {}".format(end_time-begin_time))

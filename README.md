@@ -36,6 +36,8 @@ Coming soon...
 
 # TODO
 
+- Use JSON for serialization instead of pickle.
+- Switch to using command line arguments (vs. editing the files)
 - Continue linting code and documentation
 - Add an error rate prediction using the test set to the final model fitting
 - Check/expand unit testing in `testing.py`

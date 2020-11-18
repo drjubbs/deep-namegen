@@ -129,7 +129,8 @@ dmypy.json
 .pyre/
 
 # Custom for this project
-out/
+output/
+images/
 *.h5
 temp-plot.html
 .vscode

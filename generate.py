@@ -14,9 +14,14 @@ from preprocessing import Preprocessor, StatisticalProb, LETTERS
 def main():
     """Main entry point"""
 
-    model = tf.keras.models.load_model('curr_model.h5')
-    with open("./out/input.p", "rb") as input_fn:
-        pre_proc = pickle.load(input_fn)[0]
+    model = tf.keras.models.load_model('./output/curr_model.h5')
+    FILENAME = "./output/bible_characters.json"
+
+    # De-serialize preprocessor
+    with open(FILENAME, "r") as this_file:
+        json_txt = this_file.read()
+    pre = Preprocessor()
+    pre.from_json(json_txt)
 
     stride = len(LETTERS)
     len_results = []
@@ -32,13 +37,13 @@ def main():
         word = []
 
         # Starting string without positional marker
-        x_enc = pre_proc.get_starting_vector()
+        x_enc = pre.get_starting_vector()
 
         while not done:
 
             # Augment with the positional indicator
             x_pos = np.concatenate([
-                        np.array([length/pre_proc.get_max_length()]).reshape(-1,1),
+                        np.array([length/pre.get_max_length()]).reshape(-1,1),
                         x_enc], axis=1)
 
             prob = list(model.predict(x_pos)[0,:])
@@ -67,7 +72,7 @@ def main():
 
         # Skip if this word is in our training set...
         test_output="".join(word)
-        if not test_output in pre_proc.get_targets():
+        if not test_output in pre.get_targets():
             num_words=num_words+1
             print(test_output.replace("_", " ").title())
             len_results.append(len(word))

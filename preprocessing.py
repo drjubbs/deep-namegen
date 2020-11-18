@@ -10,15 +10,28 @@ import json
 import base64
 import gzip
 import os
+import argparse
+import sys
 import pandas as pd
 import numpy as np
 import plotly.express as px
 from plotly.offline import plot
 
-# User parameters
+# Module parameters
 ENCODE_FIRST_PROB = True
 ENCODE_SECOND_PROB = True
 LETTERS="^ABCDEFGHIJKLMNOPQRSTUVWXYZ'_-$"
+EPILOG=\
+"""Given an input, generates one-hot encoded input and output mappings for a
+rolling window over each input.
+
+The preprocessor looks for an input file <label>.txt in the path ./input/ and
+outputs a JSON serialized version of the data and preprocessor along with two
+CSV files which are readable in a spreadsheet application corresponding to the
+train and test sets.
+
+See README.md for more information.
+"""
 
 class StatisticalProb:
     """Create probability table from targets.
@@ -117,6 +130,7 @@ class Preprocessor:
         self._targets = None
 
         self.filename = None
+        self.label = None
         self.window = 0
         self.statistics = None
         self.x_train = None
@@ -124,24 +138,37 @@ class Preprocessor:
         self.x_test = None
         self.y_test = None
 
-    def preprocess(self, input_filename, window):
+    def preprocess(self, input_filename, window, data=None, shuffle=True):
         """Preprocesses input data. Strings are made upper case, spaces and
         special characters are stripped, spaces into underscores. Performs
         some data integrity checks. Data is split into training and test sets.
         Probability distributions of the first and second letter are calculated
         and cached.
 
+            suffle: Controls whether or not to randomize order of train/test
+
         Human readable output of the input/output can be found in the following
         files:
-        './out/df_human_train.csv'
-        './out/df_human_test.csv'
+
+            './output/[label]_df_train.csv'
+            './output/[label]_df_test.csv'
+
+        If optional parameter `data` is specified, that is used instead of the
+        passed filename to source the data.
         """
 
         self.filename = input_filename
         self.window = window
 
-        with open(self.filename, "r") as input_file:
-            txt = input_file.read().split("\n")
+        if data is None:
+            with open(self.filename, "r") as input_file:
+                txt = input_file.read().split("\n")
+        else:
+            self.filename = "default"
+            txt = data
+
+        if len(txt)<4:
+            raise ValueError("At least 4 samples needed to encode.")
 
         self._max_length = 10 + max([len(t) for t in txt])
 
@@ -155,15 +182,15 @@ class Preprocessor:
                 tgts.append(txt)
                 letters=letters.union(set(txt))
 
-        # Make sure targets are unique
-        self._targets=list(set(tgts))
+        # Make sure targets are unique. Use CDict to preserve order
+        self._targets=list(dict.fromkeys(tgts))
 
         # Nothing excessively long or short
         len_results=[len(t) for t in self._targets]
         if max(len_results)>self._max_length:
-            raise ValueError("Database contains excessively long name")
+            raise ValueError("Training set contains excessively long name")
         if max(len_results)<4:
-            raise ValueError("Database contains excessively short name")
+            raise ValueError("Training set contains excessively short name")
 
         # Make sure all the letters are in our set of
         # encoded letters, excluding the special characters
@@ -171,14 +198,18 @@ class Preprocessor:
         if not all([t in LETTERS[1:-1] for t in letters]):
             raise ValueError("Letters present in names missing in encoding.")
 
-        # Split into training and test sets
-        np.random.seed(20191125)
-        idx=np.random.choice(list(range(len(self._targets))),
-                                 size = len(self._targets),
-                                 replace = False)
+        # Split into training and test sets, shuffle is requested
+        if shuffle:
+            np.random.seed(20191125)
+            idx=np.random.choice(list(range(len(self._targets))),
+                                    size = len(self._targets),
+                                    replace = False)
 
-        train=self._targets[0:len(idx)//4*3]
-        test=self._targets[len(idx)//4*3:]
+            train = [self._targets[t] for t in idx[0:len(idx)//4*3]]
+            test = [self._targets[t] for t in idx[len(idx)//4*3:]]
+        else:
+            train = self._targets[0:len(self._targets)//4*3]
+            test = self._targets[len(self._targets)//4*3:]
 
         # if we did this correctly, the intersection of the training and
         # test sets should be zero
@@ -190,14 +221,20 @@ class Preprocessor:
         self.statistics.calc_stats(self._targets)
 
         # One hot encode and store in object
+        self.label = os.path.split(self.filename)[-1].\
+                        lower().\
+                        replace(".txt","")
+
+        if not os.path.exists("output"):
+            os.mkdir("output")
+
         df_human_train, self.x_train, self.y_train = \
             self._create_input_output(train)
-        df_human_train.to_csv("./out/df_human_train.csv")
+        df_human_train.to_csv("./output/{}_df_train.csv".format(self.label))
 
         df_human_test, self.x_test, self.y_test = \
             self._create_input_output(test)
-
-        df_human_test.to_csv("./out/df_human_test.csv")
+        df_human_test.to_csv("./output/{}_df_test.csv".format(self.label))
 
 
     def _encode_in_out(self, x_in, y_in, pos):
@@ -226,7 +263,7 @@ class Preprocessor:
         From a list of targets `name_list`, create X-y pairs using a context
         Window. Entries are pre-padded with starting characters and a stopping
         character. Global variables ENCODE_FIRST_PROB and ENCODE_SECOND_PROB
-        realace the first and second `y` targest for a word with a probability
+        replace the first and second `y` targest for a word with a probability
         instead of a hot encoding (i.e. when there is little to no context
         window available use a table lookp for next most likely)
 
@@ -299,6 +336,30 @@ class Preprocessor:
         return x_init
 
 
+    def get_rnn_format(self):
+        """Return train/test data in RNN format.
+
+        TensorFlow RNNs layers expect the data in the format of i, j, k
+        where:
+            i = samples
+            j = time (window size in this case)
+            k = features (len(LETTERS) - one hot encoding along this axis)
+
+        This routime reshapes the data.
+        """
+        # We can strip off the positional variable, the LSTM network will
+        # handle this for us.
+        x_train_np = self.x_train[:,1:]
+        x_test_np = self.x_test[:,1:]
+
+        # num_features per window slice
+        num_features = int((x_train_np.shape[1])/self.window)
+        x_train_rnn = x_train_np.reshape(len(self.x_train), self.window, num_features)
+        x_test_rnn = x_test_np.reshape(len(self.x_test), self.window, num_features)
+
+        return x_train_rnn, self.y_train, x_test_rnn, self.y_test
+
+
     def get_max_length(self):
         """Return read-only attribute max_length"""
         return self._max_length
@@ -346,23 +407,39 @@ class Preprocessor:
                        )))
             self.__setattr__(field, np_temp)
 
+def main():
+    """Main entry point"""
+    parser = argparse.ArgumentParser(
+        description="Preprocess input data prior to network training.",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog=EPILOG)
+    parser.add_argument('label')
+    parser.add_argument('window')
+    opts=parser.parse_args(sys.argv[1:])
 
-if __name__ == "__main__":
-    pre_proc=Preprocessor()
+    # Check to see if file exists
+    filename = os.path.join("input", opts.label+'.txt')
+    if not os.path.exists(filename):
+        parser.error("Could not find input file %s" % filename)
 
-    # Filename, window size
-    #pre_proc.preprocess("input/us_cities.txt", 7)
-    pre_proc.preprocess("input/bible_characters.txt", 5)
+    try:
+        this_window = int(opts.window)
+        if (this_window<1) or (this_window>100):
+            parser.error("Specify a valid positive integer window.")
+    except ValueError:
+        parser.error("Specify a valid positive integer window.")
 
-    # Pickle and save
-    if not os.path.exists('out'):
-        os.makedirs('out')
-    with open("./out/input.p","wb") as output_file:
-        pickle.dump([pre_proc], output_file)
+    # Valid arguments, execute
+    pre=Preprocessor()
+    pre.preprocess(filename, this_window)
 
-    txt_out=pre_proc.to_json()
-    with open("./out/input.json","w") as output_file:
+    # Serialize to JSON
+    txt_out=pre.to_json()
+    with open("./output/{}.json".format(pre.label),"w") as output_file:
         output_file.writelines(txt_out)
 
-    pre_proc.create_histogram()
-    
+    pre.create_histogram()
+
+
+if __name__ == "__main__":
+    main()
