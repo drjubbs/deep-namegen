@@ -3,33 +3,48 @@
 Generate new names from models, excluded those already in the training/test
 set.
 """
-import pickle
+import argparse
+import os
+import sys
 import numpy as np
 import tensorflow as tf
 import pandas as pd
 import plotly.express as px
 from plotly.offline import plot
-from preprocessing import Preprocessor, StatisticalProb, LETTERS
+from preprocessing import Preprocessor, LETTERS
 
 def main():
     """Main entry point"""
+    # Valiate command line args
+    parser = argparse.ArgumentParser(
+            description="Fit and evaluate all models in `models.py`")
+    parser.add_argument('label')
+    parser.add_argument('model_name')
+    opts = parser.parse_args(sys.argv[1:])
 
-    model = tf.keras.models.load_model('./output/curr_model.h5')
-    FILENAME = "./output/bible_characters.json"
-
-    # De-serialize preprocessor
-    with open(FILENAME, "r") as this_file:
+    # Read preprocessor
+    filename = os.path.join("output", opts.label+".json")
+    if not os.path.exists(filename):
+        parser.error("Could not find JSON preprocessed data: %s" % filename)
+    with open(filename, "r") as this_file:
         json_txt = this_file.read()
     pre = Preprocessor()
     pre.from_json(json_txt)
 
-    stride = len(LETTERS)
-    len_results = []
+    # Read model
+    filename = os.path.join("output", "{0}_final_model.h5".format(opts.label))
+    if not os.path.exists(filename):
+        parser.error("Could not find model: %s" % filename)
+    model = tf.keras.models.load_model(filename)
 
+    stride = len(LETTERS)
+    num_words = 0
+
+    len_results = []
     #------------------------------------------
     # Generate names
     #------------------------------------------
-    num_words = 0
+
     while num_words<1000:
 
         length = 0
@@ -41,23 +56,32 @@ def main():
 
         while not done:
 
-            # Augment with the positional indicator
-            x_pos = np.concatenate([
-                        np.array([length/pre.get_max_length()]).reshape(-1,1),
-                        x_enc], axis=1)
+            if opts.model_name[0:4]=="LSTM":
+                x_pos = x_enc.reshape(1,pre.window,int(x_enc.shape[1]/pre.window))
+            elif opts.model_name[0:4]=="DENS":
+                # Augment with the positional indicator
+                x_pos = np.concatenate([
+                            np.array([length/pre.get_max_length()]).reshape(-1,1),
+                            x_enc], axis=1)
+            else:
+                raise ValueError("Bad model type/prefix: %s" % opts.model_name[0:4])
 
             prob = list(model.predict(x_pos)[0,:])
             prob = list(prob/sum(prob))
 
             # Set up the high and low limits for each letter
-            a_prob = ([0]+list(np.cumsum([0]+prob[1:])))[:-1]
-            b_prob = ([0]+list(np.cumsum([0]+prob[1:])))[1:]
+            #a_prob = ([0]+list(np.cumsum([0]+prob[1:])))[:-1]
+            #b_prob = ([0]+list(np.cumsum([0]+prob[1:])))[1:]
+
+            a_prob = [0]+list(np.cumsum(prob[:-1]))
+            b_prob = list(np.cumsum(prob[:-1]))+[1]
 
             prob_rand = np.random.rand()
             mask=[prob_rand>=x1 and prob_rand<x2 for x1, x2 in \
                         zip(a_prob, b_prob)]
 
             letter=LETTERS[mask.index(True)]
+
             if letter=="$":
                 done=True
             else:
@@ -72,7 +96,7 @@ def main():
 
         # Skip if this word is in our training set...
         test_output="".join(word)
-        if not test_output in pre.get_targets():
+        if test_output not in pre.get_targets():
             num_words=num_words+1
             print(test_output.replace("_", " ").title())
             len_results.append(len(word))
@@ -87,7 +111,6 @@ def main():
         width=300,
         height=300)
     plot(fig)
-
 
 if __name__ == "__main__":
     main()

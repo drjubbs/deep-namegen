@@ -8,21 +8,28 @@ import time
 from sklearn.model_selection import KFold
 import numpy as np
 import pandas as pd
-import plotly.express as px
-from plotly.offline import plot
+import tensorflow as tf
+import plotly.graph_objects as go
 from preprocessing import Preprocessor
 import models
 
+PATIENCE = 10
 
-def logloss(y_true, y_pred, eps=1e-15):
-    """We need our own log loss indicator because sci-kit does not
-    support probabilities in y_true.
-    """
-    y_pred = np.clip(y_pred, eps, 1 - eps)
-    return -(y_true * np.log(y_pred)).sum(axis=1).mean()
+# Setup early stopping...
+callbacks = [
+    tf.keras.callbacks.EarlyStopping(
+        # Stop training when `val_loss` is no longer improving
+        monitor="val_loss",
+        # "no longer improving" being defined as "no better than 1e-2 less"
+        min_delta=1e-3,
+        # "no longer improving" being further defined as "for at least 2 epochs"
+        patience=PATIENCE,
+        verbose=1,
+    )
+]
 
 def main():
-    """Main entry point."""
+    """Main entry point"""
 
     # Valiate command line args
     parser = argparse.ArgumentParser(
@@ -34,11 +41,11 @@ def main():
     filename = os.path.join("output", opts.label+".json")
 
     if not os.path.exists(filename):
-        parser.error("Could not fine JSON preprocessed data: %s" % filename)
+        parser.error("Could not find JSON preprocessed data: %s" % filename)
 
     # Create image output directory if it doesn't exist
     if not os.path.exists("images"):
-        os.mkdir("images")        
+        os.mkdir("images")
 
     # De-serialize preprocessor
     with open(filename, "r") as this_file:
@@ -50,68 +57,102 @@ def main():
     models_dict = models.generate_models(pre_proc)
 
     # Fitting with cross-validation
-    kfolds = KFold(n_splits=3)
+    kfolds = KFold(n_splits=models.K_FOLDS)
     results = {}
 
     # Loop over all models...
-    for model_name, model in models_dict.items():
+    for model_name, fold_models in models_dict.items():
 
         # Reshape X based on model type... standard neural networks
         # take a different shape than LSTM and have an additional input
         # for position in vector. This is handled automatically for LSTM
         # networks.
         if model_name[0:4]=="DENS":
-            x_train = pre_proc.x_train
-            y_train = pre_proc.y_train
+            x_data = pre_proc.x_train
+            y_data = pre_proc.y_train
         elif model_name[0:4]=="LSTM":
-            x_train, y_train, _, _ = pre_proc.get_rnn_format()
+            x_data, y_data, _, _ = pre_proc.get_rnn_format()
+        else:
+            raise ValueError("Uknown model prefix: %s" % model_name[0:4])
 
         begin_time = time.time()
-        out_of_bag = []
         train_err = []
-        for train_idx, val_idx in kfolds.split(x_train, y_train):
+        val_err = []
+        history = []
 
-            # Make sure batch size not larger than training data
-            batch_size = min([opts.batch_size, len(train_idx)])
+        model_idx = 0
+        for train_idx, val_idx in kfolds.split(x_data, y_data):
 
-            history = model.fit(x_train[train_idx],
-                      y_train[train_idx],
-                      epochs=opts.epochs,
-                      batch_size=batch_size,
-                      verbose=0)
+            # Grab the model for this fold
+            model = fold_models[model_idx]
 
-            llt = logloss(y_train[train_idx], model.predict(x_train[train_idx]))
-            train_err.append(llt)
-            llv = logloss(y_train[val_idx], model.predict(x_train[val_idx]))
-            out_of_bag.append(llv)
-            print("{0:10} {1:7.4f} {2:7.4f}".format(model_name, llt, llv))
+            train_dataset = tf.data.Dataset.from_tensor_slices((
+                tf.cast(x_data[train_idx], tf.float32),
+                tf.cast(y_data[train_idx], tf.float32),
+            ))
+            train_dataset = train_dataset.batch(opts.batch_size)
 
+            val_dataset = tf.data.Dataset.from_tensor_slices((
+                tf.cast(x_data[val_idx], tf.float32),
+                tf.cast(y_data[val_idx], tf.float32),
+            ))
+            val_dataset = val_dataset.batch(opts.batch_size)
+
+            # No suffle, already done
+            hist = model.fit(
+                        x=train_dataset,
+                        epochs=opts.epochs,
+                        shuffle=False,              # Shuffle already done
+                        verbose=0,
+                        callbacks=callbacks,
+                        validation_data=val_dataset,
+                        )
+
+            # Story history and cycle to next fold
+            history.append(hist)
+            train_err.append(hist.history['loss'][-1])
+            val_err.append(hist.history['val_loss'][-1])
+            print("{0:10} {1:7.4f} {2:7.4f}".format(
+                        model_name, train_err[-1], val_err[-1]))
+            model_idx+=1
+
+        # Done with all the folds
         end_time = time.time()
-        results[model_name] = (np.mean(train_err),
-                            np.mean(out_of_bag),
-                            end_time-begin_time)
+        fit_time = end_time-begin_time
+        print("time: {0:7.2f}".format(fit_time))
 
-        df_loss = {
-            'epoch' : [t for t in range(len(history.history['loss']))],
-            'loss' : history.history['loss'],
-        }
-        fig = px.scatter(data_frame=df_loss, x='epoch', y='loss')
+        results[model_name] = (np.mean(train_err),
+                            np.mean(val_err),
+                            fit_time)
+
+        fig = go.Figure()
+        for i in range(models.K_FOLDS):
+            fig.add_trace(go.Scatter(
+                x = [t for t in range(len(history[i].history['loss']))],
+                y = history[i].history['loss'],
+                name = "Train Fold {}".format(i+1),
+                mode = 'lines',
+            ))
+            fig.add_trace(go.Scatter(
+                x = [t for t in range(len(history[i].history['val_loss']))],
+                y = history[i].history['val_loss'],
+                name = "Val Fold {}".format(i+1),
+                mode = 'lines',
+            ))
+        fig.update_xaxes(title="Epoch")
+        fig.update_yaxes(title="Loss")
         outfile = os.path.join("images", "{0}_train_{1}.png".\
                                 format(opts.label, model_name))
-        fig.write_image(outfile)
+        fig.write_image(outfile, width=1920//2, height=1080//2)
 
-
-    df_summary = pd.DataFrame(results).transpose()    
-    df_summary.columns = ['train', 'oob', 'time']
+    df_summary = pd.DataFrame(results).transpose()
+    df_summary.columns = ['train', 'val', 'time']
     df_summary['labels'] = df_summary.index
-    df_summary = df_summary[['labels', 'train', 'oob', 'time']]
+    df_summary = df_summary[['labels', 'train', 'val', 'time']]
 
-    fig = px.scatter(df_summary, x='train', y='oob', text='labels')
-    outfile = os.path.join("images", "{0}_summary_{1}.png".\
-                                format(opts.label, model_name))
-    fig.write_image(outfile, width=1920, height=1080)
+    outfile = os.path.join("output", "{0}_param_search.csv".format(opts.label))
+    df_summary.to_csv(outfile)
 
 
 if __name__ == "__main__":
     main()
-
