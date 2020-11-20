@@ -41,12 +41,7 @@ def main():
     num_words = 0
 
     len_results = []
-    #------------------------------------------
-    # Generate names
-    #------------------------------------------
-
-    while num_words<1000:
-
+    while num_words<100:
         length = 0
         done = False
         word = []
@@ -67,11 +62,10 @@ def main():
                 raise ValueError("Bad model type/prefix: %s" % opts.model_name[0:4])
 
             prob = list(model.predict(x_pos)[0,:])
-            prob = list(prob/sum(prob))
 
-            # Set up the high and low limits for each letter
-            #a_prob = ([0]+list(np.cumsum([0]+prob[1:])))[:-1]
-            #b_prob = ([0]+list(np.cumsum([0]+prob[1:])))[1:]
+            # Normalize to 1 just to be extra safe even though softmax
+            # should do this for us.
+            prob = list(prob/sum(prob))
 
             a_prob = [0]+list(np.cumsum(prob[:-1]))
             b_prob = list(np.cumsum(prob[:-1]))+[1]
@@ -101,6 +95,8 @@ def main():
             print(test_output.replace("_", " ").title())
             len_results.append(len(word))
 
+    # History of word lengths, this should match the input if everything
+    # went OK.
     df_len=pd.DataFrame(len_results, columns=['length'])
     fig=px.histogram(df_len , x='length', title="Generated")
     fig.update_xaxes(range=[0, 30])

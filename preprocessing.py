@@ -170,7 +170,7 @@ class Preprocessor:
         if len(txt)<4:
             raise ValueError("At least 4 samples needed to encode.")
 
-        self._max_length = 10 + max([len(t) for t in txt])
+        self._max_length = self.window + max([len(t) for t in txt])
 
         # Loop through all cities, make uppercase, skip
         # cities having a backslash
