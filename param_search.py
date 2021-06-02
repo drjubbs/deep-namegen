@@ -10,8 +10,10 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import plotly.graph_objects as go
+from plotly.offline import plot
 from preprocessing import Preprocessor
 import models
+
 
 PATIENCE = 10
 
@@ -30,6 +32,10 @@ callbacks = [
 
 def main():
     """Main entry point"""
+
+    # Unclear why this is needed but I get BLAS errors otherwise
+    physical_devices = tf.config.list_physical_devices('GPU')
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     # Valiate command line args
     parser = argparse.ArgumentParser(
@@ -67,10 +73,10 @@ def main():
         # take a different shape than LSTM and have an additional input
         # for position in vector. This is handled automatically for LSTM
         # networks.
-        if model_name[0:4]=="DENS":
+        if model_name[0:4] == "DENS":
             x_data = pre_proc.x_train
             y_data = pre_proc.y_train
-        elif model_name[0:4]=="LSTM":
+        elif model_name[0:4] == "LSTM":
             x_data, y_data, _, _ = pre_proc.get_rnn_format()
         else:
             raise ValueError("Uknown model prefix: %s" % model_name[0:4])
@@ -139,11 +145,10 @@ def main():
                 name = "Val Fold {}".format(i+1),
                 mode = 'lines',
             ))
+
         fig.update_xaxes(title="Epoch")
         fig.update_yaxes(title="Loss")
-        outfile = os.path.join("images", "{0}_train_{1}.png".\
-                                format(opts.label, model_name))
-        fig.write_image(outfile, width=1920//2, height=1080//2)
+        plot(fig)
 
     df_summary = pd.DataFrame(results).transpose()
     df_summary.columns = ['train', 'val', 'time']

@@ -19,7 +19,9 @@ Palosa
 
 # Setup
 
-Create a new virtual environment and install packages in `requirements.txt`. Tensorflow works best with CUDA support. For `tensorflow 2.2`, this will use the slightly older 10.1 CUDA Development Kit from NVIDIA. If you're using a newer version of TensorFlow, installing the appropriate version. Add the full path  (e.g. `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.1\bin`) to your environmental `PATH` variable. In addition to the CUDA Development Kit, the CuDNN package also must be installed and needs to match the same version as the developer toolkit.
+Create a new virtual environment and install packages in `requirements.txt`. Tensorflow works best with CUDA support. For `tensorflow 2.5.0`, this will use the slightly older 11.0 CUDA Development Kit from NVIDIA. If you're using a newer version of TensorFlow, installing the appropriate version. Add the full path  (e.g. `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.0\bin`) to your environmental `PATH` variable.  For this particular version of CUDA libraries, `cusolver64_10.dll` must be renamed to `cusolver64_11.dll`.
+
+In addition to the CUDA Development Kit, the CuDNN package also must be installed and needs to match the same version as the developer toolkit. Extract to some location and add this to the path as well `C:\somewhere\cudnn-11.3-windows-x64-v8.2.0.53\cuda\bin`.
 
 If working on a laptop, you may also need to open the Display control panel (`Control Panel > Hardware and Sound > NVIDIA Control Panel > Manage 3D Settings` ) and under `Program Settings` , force Python to use the GPU. Power saving features might cause training to crash otherwise.
 
@@ -40,7 +42,7 @@ The following is an example workflow for generating a model for the biblical cha
 >python preprocessing.py bible_characters 6
 ```
 
-Next we will try and find the best network architecture. The library of models is built by `models.py` , modify as appropriate. 
+Next we will try and find the best network architecture. The library of models is built by `models.py` , modify as appropriate (e.g. comment out models)
 
 - **Note:** Keras is fairly good about not duplicating models. It is therefore necessary to create a new model for *every single fold* during the parameter search (i.e. each model run needs a call to `tf.keras.models.Sequential()`).
 - **Note:** The prefix of the model name *does matter*. The LSTM networks take a different input than the dense networks, so ensure the prefix is set to either `LSTM ` or `DENS` as appropriate (see details in `Methods`).
@@ -54,7 +56,7 @@ param_search.py: error: the following arguments are required: label, epochs, bat
 >python param_search.py bible_characters 2000 5000
 ```
 
-This will generate several files in the `./output` and the `./images` directories using the supplied token/label. In between runs of the workflow, the files in these directories can be deleted. The `./images` directory will contain a summary of the training:![Example Training Chart](./example_training.png)
+This will generate several files in the `./output` and the `./images` directories using the supplied token/label. In between runs of the workflow, the files in these directories can be deleted. **The `./images` directory will contain a summary of the training**:![Example Training Chart](./example_training.png)
 
 This shows the model loss as a function of training epoch for both the training and validation (out-of-bag) set for all folds. The training should terminate as the validation set begins to level off. This will be at a different epoch for each fold due to changes in training data and the randomization in the network weight initialization.
 
