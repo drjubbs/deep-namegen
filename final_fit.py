@@ -34,13 +34,13 @@ pre = Preprocessor()
 pre.from_json(json_txt)
 
 # Reshape input based on model type
-if opts.model_name[0:4]=="LSTM":
+if opts.model_name[0:4] == "LSTM":
     xdata1, ydata1, xdata2, ydata2 = pre.get_rnn_format()
-    x_all=np.concatenate([xdata1, xdata2])
-    y_all=np.concatenate([ydata1, ydata2])
-elif opts.model_name[0:4]=="DENS":
-    x_all=np.concatenate([pre.x_train, pre.x_test])
-    y_all=np.concatenate([pre.y_train, pre.y_test])
+    x_all = np.concatenate([xdata1, xdata2])
+    y_all = np.concatenate([ydata1, ydata2])
+elif opts.model_name[0:4] == "DENS":
+    x_all = np.concatenate([pre.x_train, pre.x_test])
+    y_all = np.concatenate([pre.y_train, pre.y_test])
 else:
     raise ValueError("Unknown network type: %s" % opts.model_name[0:4])
 
@@ -63,15 +63,10 @@ callbacks = [
 ]
 
 # Train the model
-begin_time=time.time()
-history = model.fit(x_all, y_all,
-          epochs=5000,
-          batch_size=opts.batch_size,
-          validation_split=0.2,
-          callbacks= callbacks,
-          verbose=1,
-          )
-end_time=time.time()
+begin_time = time.time()
+history = model.fit(x_all, y_all, epochs=5000, batch_size=opts.batch_size,
+                    validation_split=0.2, callbacks=callbacks, verbose=1)
+end_time = time.time()
 print("Training time: {}".format(end_time-begin_time))
 
 # Write to file
@@ -80,16 +75,16 @@ model.save(filename)
 
 fig = go.Figure()
 fig.add_trace(go.Scatter(
-    x = [t for t in range(len(history.history['loss']))],
-    y = history.history['loss'],
-    name = "Training",
-    mode = 'lines',
+    x=list(range(len(history.history['loss']))),
+    y=history.history['loss'],
+    name="Training",
+    mode='lines',
 ))
 fig.add_trace(go.Scatter(
-    x = [t for t in range(len(history.history['val_loss']))],
-    y = history.history['val_loss'],
-    name = "Validation",
-    mode = 'lines',
+    x=list(range(len(history.history['val_loss']))),
+    y=history.history['val_loss'],
+    name="Validation",
+    mode='lines',
 ))
 fig.update_xaxes(title="Epoch")
 fig.update_yaxes(title="Loss")

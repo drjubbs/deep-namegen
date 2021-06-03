@@ -30,6 +30,7 @@ callbacks = [
     )
 ]
 
+
 def main():
     """Main entry point"""
 
@@ -120,7 +121,7 @@ def main():
             val_err.append(hist.history['val_loss'][-1])
             print("{0:10} {1:7.4f} {2:7.4f}".format(
                         model_name, train_err[-1], val_err[-1]))
-            model_idx+=1
+            model_idx += 1
 
         # Done with all the folds
         end_time = time.time()
@@ -128,22 +129,22 @@ def main():
         print("time: {0:7.2f}".format(fit_time))
 
         results[model_name] = (np.mean(train_err),
-                            np.mean(val_err),
-                            fit_time)
+                               np.mean(val_err),
+                               fit_time)
 
         fig = go.Figure()
         for i in range(models.K_FOLDS):
             fig.add_trace(go.Scatter(
-                x = [t for t in range(len(history[i].history['loss']))],
-                y = history[i].history['loss'],
-                name = "Train Fold {}".format(i+1),
-                mode = 'lines',
+                x=[t for t in range(len(history[i].history['loss']))],
+                y=history[i].history['loss'],
+                name="Train Fold {}".format(i+1),
+                mode='lines',
             ))
             fig.add_trace(go.Scatter(
-                x = [t for t in range(len(history[i].history['val_loss']))],
-                y = history[i].history['val_loss'],
-                name = "Val Fold {}".format(i+1),
-                mode = 'lines',
+                x=[t for t in range(len(history[i].history['val_loss']))],
+                y=history[i].history['val_loss'],
+                name="Val Fold {}".format(i+1),
+                mode='lines',
             ))
 
         fig.update_xaxes(title="Epoch")

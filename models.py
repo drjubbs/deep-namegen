@@ -10,6 +10,8 @@ from tensorflow.keras.layers import Dense, Dropout, LSTM
 from tensorflow.keras.models import Sequential
 import preprocessing as pp
 
+# pylint: disable=no-name-in-module, too-many-statements
+
 # Fitting parameters, adjust as needed
 K_FOLDS = 3
 OPTIMIZER = "Adam"
@@ -20,7 +22,7 @@ def generate_models(preprocess):
     """Return a dictionary of models to cycle through in the parameter
     space search.
     """
-    input_dim = len(pp.LETTERS)*preprocess.window+1
+    input_dim = len(pp.LETTERS) * preprocess.window + 1
     output_dim = len(pp.LETTERS)
 
     model_dict = {}
@@ -29,7 +31,6 @@ def generate_models(preprocess):
     # DENS 000s Single layer
     # ---------------------------------------
     params = [4, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096]
-    base = 100
     for i, param in zip(range(len(params)), params):
         models = []
         for _ in range(K_FOLDS):
@@ -37,16 +38,16 @@ def generate_models(preprocess):
             model.add(Dense(param, activation='relu', input_dim=input_dim))
             model.add(Dense(output_dim, activation='softmax'))
             model.compile(loss='categorical_crossentropy',
-                        optimizer=OPTIMIZER,
-                        metrics=METRICS)
+                          optimizer=OPTIMIZER,
+                          metrics=METRICS)
             models.append(model)
-        model_dict['DENS{0:04d}'.format(i)]=models
-    
+        model_dict['DENS{0:04d}'.format(i)] = models
+
     # ---------------------------------------
     # DENS 100s Two Layer
     # ---------------------------------------
-    params=[4, 16, 32, 64, 128, 256, 512]
-    base=100
+    params = [4, 16, 32, 64, 128, 256, 512]
+    base = 100
     for i, param in zip(range(len(params)), params):
         models = []
         for _ in range(K_FOLDS):
@@ -58,13 +59,13 @@ def generate_models(preprocess):
                           optimizer=OPTIMIZER,
                           metrics=METRICS)
             models.append(model)
-        model_dict['DENS{0:04d}'.format(i+base)]=models
+        model_dict['DENS{0:04d}'.format(i + base)] = models
 
     # ---------------------------------------
     # DENS 200s Two Layers with Dropout
     # ---------------------------------------
     params = [0.1, 0.2, 0.3, 0.4, 0.5]
-    base=200
+    base = 200
     for i, param in zip(range(len(params)), params):
         models = []
         for _ in range(K_FOLDS):
@@ -75,20 +76,19 @@ def generate_models(preprocess):
             model.add(Dropout(rate=param))
             model.add(Dense(output_dim, activation='softmax'))
             model.compile(loss='categorical_crossentropy',
-                    optimizer=OPTIMIZER,
-                    metrics=METRICS)
+                          optimizer=OPTIMIZER,
+                          metrics=METRICS)
             models.append(model)
-        model_dict['DENS{0:04d}'.format(i+base)]=models
-    
+        model_dict['DENS{0:04d}'.format(i + base)] = models
+
     # ---------------------------------------
     # DENS 300s Three Layers with 0.5 dropout
     # ---------------------------------------
-    params = [2**(t+2) for t in range(10)]
-    base=300
+    params = [2 ** (t + 2) for t in range(10)]
+    base = 300
     for i, param in zip(range(len(params)), params):
         models = []
         for _ in range(K_FOLDS):
-            model = Sequential()
             model = Sequential()
             model.add(Dense(param, activation='relu', input_dim=input_dim))
             model.add(Dropout(rate=0.5))
@@ -98,16 +98,16 @@ def generate_models(preprocess):
             model.add(Dropout(rate=0.5))
             model.add(Dense(output_dim, activation='softmax'))
             model.compile(loss='categorical_crossentropy',
-                    optimizer=OPTIMIZER,
-                    metrics=METRICS)
+                          optimizer=OPTIMIZER,
+                          metrics=METRICS)
             models.append(model)
-        model_dict['DENS{0:04d}'.format(i+base)]=models
+        model_dict['DENS{0:04d}'.format(i + base)] = models
 
     # ----------------------------------------
     # LSTM 000s Basic LSTM Model
     # -----------------------------------------
-    params = [2**(t+2) for t in range(8)]
-    base=000
+    params = [2 ** (t + 2) for t in range(8)]
+    base = 000
     for i, param in zip(range(len(params)), params):
         models = []
         for _ in range(K_FOLDS):
@@ -115,16 +115,16 @@ def generate_models(preprocess):
             model.add(LSTM(param))
             model.add(Dense(output_dim, activation='softmax'))
             model.compile(loss='categorical_crossentropy',
-                    optimizer=OPTIMIZER,
-                    metrics=METRICS)
+                          optimizer=OPTIMIZER,
+                          metrics=METRICS)
             models.append(model)
-        model_dict['LSTM{0:04d}'.format(i+base)]=models
+        model_dict['LSTM{0:04d}'.format(i + base)] = models
 
-    #----------------------------------------
+    # ----------------------------------------
     # LSTM 100s LSTM() + Dense
-    #-----------------------------------------
-    params = [2**(t+2) for t in range(8)]
-    base=100
+    # -----------------------------------------
+    params = [2 ** (t + 2) for t in range(8)]
+    base = 100
     for i, param in zip(range(len(params)), params):
         models = []
         for _ in range(K_FOLDS):
@@ -134,10 +134,10 @@ def generate_models(preprocess):
             model.add(Dropout(rate=0.5))
             model.add(Dense(output_dim, activation='softmax'))
             model.compile(loss='categorical_crossentropy',
-                    optimizer=OPTIMIZER,
-                    metrics=METRICS)
+                          optimizer=OPTIMIZER,
+                          metrics=METRICS)
             models.append(model)
-        model_dict['LSTM{0:04d}'.format(i+base)]=models
+        model_dict['LSTM{0:04d}'.format(i + base)] = models
     # ----------------------------------------
     # END
     # -----------------------------------------
