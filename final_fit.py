@@ -15,7 +15,7 @@ EPOCHS = 5000
 EARLY_STOPPING_FRACTION = 0.2
 PATIENCE = 10
 
-# Valiate command line args
+# Validate command line args
 parser = argparse.ArgumentParser(
         description="Fit and evaluate all models in `models.py`")
 parser.add_argument('label')

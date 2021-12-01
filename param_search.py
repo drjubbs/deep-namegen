@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" Hyper-parameter search using cross-fold validation. """
+""" Hyperparameter search using cross-fold validation. """
 
 import os
 import argparse
@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import plotly.graph_objects as go
-from plotly.offline import plot
 from preprocessing import Preprocessor
 import models
 
@@ -34,11 +33,7 @@ callbacks = [
 def main():
     """Main entry point"""
 
-    # Unclear why this is needed but I get BLAS errors otherwise
-    physical_devices = tf.config.list_physical_devices('GPU')
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
-    # Valiate command line args
+    # Validate command line args
     parser = argparse.ArgumentParser(
         description="Fit and evaluate all models in `models.py`")
     parser.add_argument('label')
@@ -80,7 +75,7 @@ def main():
         elif model_name[0:4] == "LSTM":
             x_data, y_data, _, _ = pre_proc.get_rnn_format()
         else:
-            raise ValueError("Uknown model prefix: %s" % model_name[0:4])
+            raise ValueError("Unknown model prefix: %s" % model_name[0:4])
 
         begin_time = time.time()
         train_err = []
@@ -105,7 +100,7 @@ def main():
             ))
             val_dataset = val_dataset.batch(opts.batch_size)
 
-            # No suffle, already done
+            # No shuffle, already done
             hist = model.fit(
                         x=train_dataset,
                         epochs=opts.epochs,
@@ -149,7 +144,9 @@ def main():
 
         fig.update_xaxes(title="Epoch")
         fig.update_yaxes(title="Loss")
-        plot(fig)
+
+        filename = os.path.join("images", opts.label + "_" + model_name + ".png")
+        fig.write_image(filename)
 
     df_summary = pd.DataFrame(results).transpose()
     df_summary.columns = ['train', 'val', 'time']

@@ -2,7 +2,7 @@
 """
 Generates a dictionary of models which the parameter search will iterate
 over. Models built using tensorflow with integrated Keras support. Note
-that each fold requires a new model -- otherwise Keras will remmeber the
+that each fold requires a new model -- otherwise Keras will remember the
 weights from the previous fitting and not give a good indication of
 generalization error.
 """
