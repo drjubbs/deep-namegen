@@ -43,7 +43,7 @@ def parse_command_line():
 def get_letter(model, x_pos):
     """Given a model, make a prediction and convert to specific letter using
     a random sampling method (i.e. model output is probability of the letter
-    occurring.
+    occurring).
     """
 
     prob = list(model.predict(x_pos)[0, :])
@@ -65,7 +65,7 @@ def get_letter(model, x_pos):
 
 def generate_word(pre, model, model_name):
     """Generate a single word from the model. Note the `model_name` parameter
-    is used to determine whether or not positional information is encoded in
+    is used to determine whether positional information is encoded in
     the vector.
 
     Inputs are the preprocessor object, the tensor flow model, and the
